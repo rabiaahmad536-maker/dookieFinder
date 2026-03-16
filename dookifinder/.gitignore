@@ -52,3 +52,9 @@ GoogleService-Info.plist
 # Environment variables (not too sure what these are for?)
 .env
 .env.*
+
+# Flutter generated files
+**/GeneratedPluginRegistrant.swift
+**/generated_plugin_registrant.cc
+**/generated_plugin_registrant.h
+**/generated_plugins.cmake
