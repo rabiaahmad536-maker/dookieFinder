@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import '../widgets/filter_drawer.dart'; 
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -35,24 +36,34 @@ class _MapScreenState extends State<MapScreen> {
 
   //runs asyncronously hence Future<void>
   Future<void> checkLocationPermission() async {
-  LocationPermission permission = await Geolocator.requestPermission();
+    LocationPermission permission = await Geolocator.requestPermission();
 
-    if (permission == LocationPermission.whileInUse ||
-        permission == LocationPermission.always) {
-      setState(() {
-        _locationPermissionGranted = true;
-      });
-    }
+      if (permission == LocationPermission.whileInUse ||
+          permission == LocationPermission.always) {
+        setState(() {
+          _locationPermissionGranted = true;
+        });
+      }
     //create else statement - what does app do if permission is denied??????
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      //map extends behind the navigation bar 
+      extendBodyBehindAppBar: true,  
 
       appBar: AppBar(
-        title: const Text('DookiFinder'),
+        //lets the hamburger menu icon be visible on the map
+        backgroundColor: Colors.transparent,  
+        elevation: 0, 
+        iconTheme: const IconThemeData(                        
+          color: Colors.black,                
+        ),
       ),
+
+      //menubar
+      drawer: const FilterDrawer(),
 
       //GoogleMap is a widget from the google_maps_flutter package
       body: GoogleMap(
