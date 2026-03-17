@@ -1,6 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:dookifinder/data/washroom_data.dart';
+
+class WashroomLocation{
+  final String id;
+  final String name;
+  final double lat;
+  final double long;
+  final String review;
+  final double rating;
+
+  const WashroomLocation({
+    required this.id,
+    required this.name,
+    required this.lat,
+    required this.long,
+    required this.review,
+    required this.rating,
+  });
+}
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -46,6 +65,55 @@ class _MapScreenState extends State<MapScreen> {
     //create else statement - what does app do if permission is denied??????
   }
 
+  Set<Marker> _buildMarkers(){
+    return washroomLocations.map((washroom){
+      return Marker(
+        markerId: MarkerId(washroom.id),
+        position: LatLng(washroom.lat, washroom.long),
+        onTap: (){
+          _showWashroomReview(
+            name: washroom.name,
+            review: washroom.review,
+            rating: washroom.rating,
+          );
+        },
+        );
+    }).toSet();
+  }
+
+  void _showWashroomReview({
+    required String name,
+    required String review,
+    required double rating,
+  }){
+    showModalBottomSheet(
+      context: context,
+      builder: (context){
+        return Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children:[
+              Text(
+                name,
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text('Rating: $rating/5'),
+              const SizedBox(height: 12),
+              Text(review),
+              const SizedBox(height: 16),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -63,6 +131,7 @@ class _MapScreenState extends State<MapScreen> {
         },
         myLocationEnabled: _locationPermissionGranted, //shows users current location
         myLocationButtonEnabled: _locationPermissionGranted, //button to center map around user location
+        markers: _buildMarkers(),
       ),
 
     );
