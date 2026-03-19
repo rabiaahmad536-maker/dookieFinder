@@ -74,10 +74,145 @@ class _MapScreenState extends State<MapScreen> {
     }).toSet();
   }
 
+  //get nearest bathroom
+  Future<WashroomLocation?> _findNearestWashroom(Position userPosition) async {
+    if (washroomLocations.isEmpty) return null;
+    
+    WashroomLocation? nearest;
+
+    //set to infinity to find shorter path to bathroom
+    double shortestDistance = double.infinity; 
+    
+    //going though washroom data 
+    for (var washroom in washroomLocations) {
+      double distance = Geolocator.distanceBetween(
+        userPosition.latitude,
+        userPosition.longitude,
+        washroom.lat,
+        washroom.long,
+      );
+      
+      //comparing prev distance to current
+      if (distance < shortestDistance) {
+        shortestDistance = distance;
+        nearest = washroom;
+      }
+    }
+    
+    return nearest;
+  }
+
+  //when button is pressed 
+  Future<void> _handleEmergency() async {
+    //if locatoin is not enabled
+    if (!_locationPermissionGranted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Location permission required for emergency feature.'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoadingDirections = true);
+
+    try {
+      // Get current position
+      Position? userPosition;
+      try {
+        userPosition = await Geolocator.getCurrentPosition(
+          desiredAccuracy: LocationAccuracy.high,
+        ).timeout(const Duration(seconds: 5));
+      } catch (_) {
+        userPosition = await Geolocator.getLastKnownPosition();
+      }
+
+      if (userPosition == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not get your location. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoadingDirections = false);
+        return;
+      }
+
+      //find nearest bathroom func
+      WashroomLocation? nearestWashroom = await _findNearestWashroom(userPosition);
+      // if nearest washroom is null before real dialogue
+      if (nearestWashroom == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No bathrooms found nearby.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+        setState(() => _isLoadingDirections = false);
+        return;
+      }
+      
+      // Show confirmation dialog
+      bool? confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Emergency Bathroom'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Nearest bathroom: ${nearestWashroom.name}'),
+              const SizedBox(height: 8),
+              Text('Rating: ${nearestWashroom.rating}/5'),
+              const Divider(),
+              const Text('Get directions to this bathroom?'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('CANCEL'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('GO NOW'),
+            ),
+          ],
+        ),
+      );
+      if (confirm == true) {
+        await _getDirections(nearestWashroom, isEmergency: true);
+      } 
+      else {
+        setState(() => _isLoadingDirections = false);
+      }
+
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error finding nearest bathroom: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() => _isLoadingDirections = false);
+    }
+  }
+
+
   // fetches a walking route from the user's current location to the washroom
   // and draws it as a blue line on the map
-  Future<void> _getDirections(WashroomLocation washroom) async {
-    Navigator.pop(context);
+  Future<void> _getDirections(WashroomLocation washroom, {bool isEmergency = false}) async {
+
+    // Only pop if not from emergency (since emergency has no bottom sheet)
+    if (!isEmergency) {
+      Navigator.pop(context); 
+    }
 
     if (!_locationPermissionGranted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -146,15 +281,26 @@ class _MapScreenState extends State<MapScreen> {
             Polyline(
               polylineId: const PolylineId('route'),
               points: routeCoords,
-              color: Colors.deepPurple,
+              color: isEmergency ? Colors.red : Colors.deepPurple, // Red for emergency, purple for regular navigation
               width: 5,
             ),
           };
           _routeDuration = duration;
         });
 
+        //display emergency success message
+        if (isEmergency) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Emergency route to ${washroom.name}'),
+              backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
+            ),
+          );
+        }
+
         LatLngBounds bounds = _boundsFromLatLngList([
-          LatLng(userPosition!.latitude, userPosition.longitude),
+          LatLng(userPosition.latitude, userPosition.longitude),
           LatLng(washroom.lat, washroom.long),
         ]);
         _mapController?.animateCamera(CameraUpdate.newLatLngBounds(bounds, 80));
@@ -212,6 +358,7 @@ class _MapScreenState extends State<MapScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children:[
+              //display washroom information
               Text(
                 washroom.name,
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
@@ -318,24 +465,49 @@ class _MapScreenState extends State<MapScreen> {
                     ),
                     Row(
                       children: [
-                        const Icon(Icons.directions_walk, color: Colors.deepPurple, size: 32),
-                        const SizedBox(width: 12),
+                        //if emergency mode, format directions in red
+                       if (_polylines.first.color == Colors.red)
+                        const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red,
+                          size: 32,
+                        )
+                      else
+                        const Icon(
+                          Icons.directions_walk,
+                          color: Colors.deepPurple,
+                          size: 32,
+                        ),
+                      const SizedBox(width: 12),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text(
-                              'Estimated Time',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Colors.grey,
+                            if (_polylines.first.color == Colors.red)
+                              const Text(
+                                'EMERGENCY - Fastest Route',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.red,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              )
+                            else
+                              const Text(
+                                'Estimated Time',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey,
+                                  fontWeight: FontWeight.normal,
+                                ),
                               ),
-                            ),
                             Text(
                               _routeDuration!,
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.deepPurple,
+                                color: _polylines.first.color == Colors.red 
+                                    ? Colors.red 
+                                    : Colors.deepPurple,
                               ),
                             ),
                           ],
@@ -359,8 +531,47 @@ class _MapScreenState extends State<MapScreen> {
                 ),
               ),
             ),
-        ],
-      ),
-    );
+
+            // emergency button formatting 
+            if (_polylines.isEmpty)
+              Positioned(
+                bottom: 20,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: ElevatedButton(
+                    onPressed: _handleEmergency,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      elevation: 8,
+                      shadowColor: Colors.red.withOpacity(0.5),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: const [
+                        Icon(Icons.warning_amber_rounded, size: 24),
+                        SizedBox(width: 8),
+                        Text(
+                          'EMERGENCY',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      }
   }
-}
