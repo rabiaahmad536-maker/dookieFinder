@@ -4,6 +4,8 @@ import 'package:firebase_core/firebase_core.dart' show FirebaseOptions;
 import 'package:flutter/foundation.dart'
     show defaultTargetPlatform, kIsWeb, TargetPlatform;
 
+const String googleMapsApiKey = 'AIzaSyD65Z8_du1vWaNo2p0qzfjH-kkZHMbNFjU';
+
 /// Default [FirebaseOptions] for use with your Firebase apps.
 ///
 /// Example:
