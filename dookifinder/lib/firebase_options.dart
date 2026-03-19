@@ -85,4 +85,5 @@ class DefaultFirebaseOptions {
     authDomain: 'dookifinder.firebaseapp.com',
     storageBucket: 'dookifinder.firebasestorage.app',
   );
+
 }
