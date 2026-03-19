@@ -5,6 +5,9 @@
   final double long;
   final String review;
   final double rating;
+  final bool isAccessible;
+  final bool isGenderNeutral;
+  final bool isSingleStall;
 
   const WashroomLocation({
     required this.id,
@@ -13,6 +16,9 @@
     required this.long,
     required this.review,
     required this.rating,
+    this.isAccessible = false,
+    this.isGenderNeutral = false,
+    this.isSingleStall = false,
   });
 }
  
@@ -32,6 +38,7 @@
       long: -80.2275,
       review: 'Usually quiet, but can get busy during peak study hours.',
       rating: 3.8,
+      isAccessible: true,
     ),
     WashroomLocation(
       id: 'rozanski_1',
@@ -40,6 +47,8 @@
       long: -80.2294,
       review: 'Convenient Location and Generally Well Maintained',
       rating: 3.8,
+      isGenderNeutral: true,
+      isAccessible: true,
     ),
     WashroomLocation(
       id: 'mckinnon_1',
@@ -48,7 +57,9 @@
       long: -80.2283,
       review: 'Central and convenient, but can get busy between classes.',
       rating: 3.9,
+      isSingleStall: true,
       ),
+
       WashroomLocation(
         id: 'war_memorial_1',
         name: 'War Memorial Hall Washroom',
@@ -56,6 +67,9 @@
         long: -80.2286,
         review: 'Usually clean and easy to find.',
         rating: 4.0,
+        isAccessible: true,
+        isGenderNeutral: true,
+        isSingleStall: true,
       ),
       WashroomLocation(
         id: 'science_complex_1',
@@ -73,6 +87,7 @@
         review: 'Good location for nearby classes.',
         rating: 3.7,
       ),
+
       WashroomLocation(
         id: 'thornbrough_1',
         name: 'Thornbrough Washroom',
@@ -80,6 +95,7 @@
         long: -80.2289,
         review: 'Decent condition and usually not too crowded.',
         rating: 3.8,
+        isSingleStall: true,
       ),
       WashroomLocation(
         id: 'athletics_1',

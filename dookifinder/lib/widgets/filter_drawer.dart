@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dookifinder/screens/login_page.dart';
+import '../state/filter_state.dart';
+import 'package:provider/provider.dart';
 
 class FilterDrawer extends StatefulWidget {
   const FilterDrawer({super.key});
@@ -9,14 +11,13 @@ class FilterDrawer extends StatefulWidget {
 }
 
 class _FilterDrawerState extends State<FilterDrawer> {
-  //preset filters
-  bool _accessibility = false;
-  bool _genderNeutral = false;
-  bool _singleStall = false;
   double _minRating = 0;
 
   @override
   Widget build(BuildContext context) {
+    //looks for any update to the filters and applies them 
+    final filters = context.watch<FilterState>(); 
+
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -35,18 +36,22 @@ class _FilterDrawerState extends State<FilterDrawer> {
             SwitchListTile(
               title: const Text('Accessibility'),
               subtitle: const Text('Wheelchair accessible'),
-              value: _accessibility,
-              onChanged: (val) => setState(() => _accessibility = val),
+              value: filters.accessibility,
+              //on any change, calls update function that reloads the map, and displays the new filter setting.
+              //val is the new value of the switch
+             onChanged: (val) => filters.update(accessibility: val),
             ),
+
             SwitchListTile(
               title: const Text('Gender Neutral'),
-              value: _genderNeutral,
-              onChanged: (val) => setState(() => _genderNeutral = val),
+              value: filters.genderNeutral,
+              onChanged: (val) => filters.update(genderNeutral: val),
             ),
+
             SwitchListTile(
               title: const Text('Single Stall'),
-              value: _singleStall,
-              onChanged: (val) => setState(() => _singleStall = val),
+              value: filters.singleStall,
+              onChanged: (val) => filters.update(singleStall: val),
             ),
 
             const Divider(),
@@ -65,19 +70,6 @@ class _FilterDrawerState extends State<FilterDrawer> {
             ),
 
             const Spacer(),
-
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    Navigator.pop(context);
-                  },
-                  child: const Text('Apply Filters'),
-                ),
-              ),
-            ),
 
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),

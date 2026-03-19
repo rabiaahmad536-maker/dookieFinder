@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../data/washroom_data.dart';
 
 class FilterState extends ChangeNotifier {
   //default values for filters, all false
@@ -7,7 +8,6 @@ class FilterState extends ChangeNotifier {
   bool singleStall = false;
   double minRating = 0;
 
-  //
   void update({
     bool? accessibility,
     bool? genderNeutral,
@@ -19,5 +19,19 @@ class FilterState extends ChangeNotifier {
     if (singleStall != null) this.singleStall = singleStall;
     if (minRating != null) this.minRating = minRating;
     notifyListeners(); // triggers map to re-filter markers
+  }
+
+  //activates bathrooms that have matching filters. Runs through all locations (loc), if 
+  //the loc retuns false it is not displayed
+  List<WashroomLocation> applyFilters(List<WashroomLocation> locations) {
+    return locations.where((loc) {
+      //if accessibility filter is on but location isn't accessible, return false
+      if (accessibility && !loc.isAccessible) return false;
+      if (genderNeutral && !loc.isGenderNeutral) return false;
+      if (singleStall && !loc.isSingleStall) return false;
+      //if the washroom is below the stated rating, return false
+      if (loc.rating < minRating) return false;
+      return true;
+    }).toList();
   }
 }
