@@ -18,9 +18,10 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(   
+    return ChangeNotifierProvider(     
       create: (_) => FilterState(),
       child: MaterialApp(  
+        debugShowCheckedModeBanner: false,   
         title: 'dookifinder',
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),

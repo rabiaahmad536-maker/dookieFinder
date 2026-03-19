@@ -8,6 +8,8 @@ import 'package:dookifinder/data/washroom_data.dart';
 import 'dart:async';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'package:provider/provider.dart';
+import '../state/filter_state.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -60,8 +62,10 @@ class _MapScreenState extends State<MapScreen> {
     //create else statement - what does app do if permission is denied??????
   }
 
-  Set<Marker> _buildMarkers(){
-    return washroomLocations.map((washroom){
+  Set<Marker> _buildMarkers(FilterState filters){
+    //apply filters
+    final filtered = filters.applyFilters(washroomLocations);
+    return filtered.map((washroom){
       return Marker(
         markerId: MarkerId(washroom.id),
         position: LatLng(washroom.lat, washroom.long),
@@ -364,8 +368,14 @@ class _MapScreenState extends State<MapScreen> {
                 style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              Text('Rating: ${washroom.rating}/5'),
-              const SizedBox(height: 12),
+              Text('⭐ Rating: ${washroom.rating}/5'),
+              const SizedBox(height: 8),
+
+              if (washroom.isAccessible) const Text('♿ Accessible'),
+              if (washroom.isGenderNeutral) const Text('🚻 Gender Neutral'),
+              if (washroom.isSingleStall) const Text('🚪 Single Stall'),
+              const SizedBox(height: 8),
+
               Text(washroom.review),
               const SizedBox(height: 16),
               // button that triggers directions to this washroom
@@ -387,17 +397,40 @@ class _MapScreenState extends State<MapScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      //map extends behind the navigation bar 
-      extendBodyBehindAppBar: true,  
+      extendBodyBehindAppBar: true, 
 
       appBar: AppBar(
-        //lets the hamburger menu icon be visible on the map
-        backgroundColor: Colors.transparent,  
-        elevation: 0, 
-        iconTheme: const IconThemeData(                        
-          color: Colors.black,                
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        //disables the automatic menu bar, allows for a different image to be used
+        automaticallyImplyLeading: false,
+
+        //menu bar button is now an iconButton on top of white square
+        title: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Builder(
+            builder: (context) => IconButton(
+              icon: const Icon(Icons.menu, color: Colors.black),
+              onPressed: () => Scaffold.of(context).openDrawer(),
+            ),
+          ),
         ),
+
+        //adding the logo to the app bar
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: Image.asset(
+              'assets/images/dooki_finder.png',
+              height: 80,
+            ),
+          ),
+        ],
       ),
+       
 
       //menubar
       drawer: const FilterDrawer(),
@@ -405,16 +438,20 @@ class _MapScreenState extends State<MapScreen> {
       //GoogleMap is a widget from the google_maps_flutter package
       body: Stack(
         children: [
-          GoogleMap(
-            initialCameraPosition: _initialPosition,
-            onMapCreated: (GoogleMapController controller) {
-              _mapController = controller;
-            },
-            myLocationEnabled: _locationPermissionGranted,
-            myLocationButtonEnabled: _locationPermissionGranted,
-            markers: _buildMarkers(),
-            polylines: _polylines, // tells the map to draw whatever lines are in _polylines
-          ),
+            Consumer<FilterState>(
+              builder: (context,filters, _) {
+                return GoogleMap(
+                   initialCameraPosition: _initialPosition,
+                  onMapCreated: (GoogleMapController controller) {
+                    _mapController = controller;
+                  },
+                  myLocationEnabled: _locationPermissionGranted,
+                  myLocationButtonEnabled: _locationPermissionGranted,
+                  markers: _buildMarkers(filters),
+                  polylines: _polylines, // tells the map to draw whatever lines are in _polylines
+                );
+              }
+            ),
           // loading card that overlays the map while fetching the route
           if (_isLoadingDirections)
             const Center(
