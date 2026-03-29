@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:dookifinder/screens/login_page.dart';
 import '../state/filter_state.dart';
 import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:dookifinder/screens/profile_page.dart';
 
 class FilterDrawer extends StatefulWidget {
   const FilterDrawer({super.key});
@@ -71,21 +73,32 @@ class _FilterDrawerState extends State<FilterDrawer> {
 
             const Spacer(),
 
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {
-                    Navigator.pop(context); // close the drawer first
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (_) => const LoginPage()),
-                    );
-                  },
-                  child: const Text('Login'),
-                ),
-              ),
+            StreamBuilder<User?>(
+              stream: FirebaseAuth.instance.authStateChanges(),
+              builder: (context, snapshot) {
+                final user = snapshot.data;
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => user != null
+                                ? const ProfilePage()
+                                : const LoginPage(),
+                          ),
+                        );
+                      },
+                      icon: Icon(user != null ? Icons.person : Icons.login),
+                      label: Text(user != null ? 'Profile' : 'Login'),
+                    ),
+                  ),
+                );
+              },
             ),
           ],
         ),

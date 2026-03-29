@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:dookifinder/screens/login_page.dart';
 import 'package:dookifinder/screens/map_screen.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class SignUpPage extends StatefulWidget {
   const SignUpPage({super.key});
@@ -16,6 +17,7 @@ class _SignUpPageState extends State<SignUpPage> {
   final _confirmPasswordController = TextEditingController();
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
@@ -25,9 +27,31 @@ class _SignUpPageState extends State<SignUpPage> {
     super.dispose();
   }
 
-  void _handleSignUp() {
-    if (_formKey.currentState!.validate()) {
-      // TODO: wire up Firebase Auth / Google Auth here
+  Future<void> _handleSignUp() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text,
+      );
+      if (mounted) _goToMap(context);
+    } on FirebaseAuthException catch (e) {
+      String message = switch (e.code) {
+        'email-already-in-use' => 'An account already exists for that email.',
+        'invalid-email' => 'Invalid email address.',
+        'weak-password' => 'Password is too weak.',
+        _ => 'Sign up failed. Please try again.',
+      };
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -167,12 +191,16 @@ class _SignUpPageState extends State<SignUpPage> {
 
                   // Sign up button
                   ElevatedButton(
-                    onPressed: _handleSignUp,
+                    onPressed: _isLoading ? null : _handleSignUp,
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child:
-                        const Text('Sign Up', style: TextStyle(fontSize: 16)),
+                    child: _isLoading
+                        ? const SizedBox(
+                            height: 20, width: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Sign Up', style: TextStyle(fontSize: 16)),
                   ),
                   const SizedBox(height: 16),
 
