@@ -10,7 +10,11 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../state/filter_state.dart';
-import '../services/washroom_service.dart';  
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../data/review_model.dart';
+import '../data/review_service.dart';
+import 'login_page.dart';
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -33,11 +37,23 @@ class _MapScreenState extends State<MapScreen> {
   // stores the estimated walking time to display at the bottom
   String? _routeDuration;
 
-  //instance of washroom_service class. ALlows communication with firebase
-  final _washroomService = WashroomService();
-  //holds washoom data once uploaded from firebase
-  List<WashroomLocation> _washrooms = [];
+  final ReviewService _reviewService = ReviewService();
 
+  WashroomLocation _washroomFromDoc(DocumentSnapshot<Map<String, dynamic>> doc,) {
+    final data = doc.data() ?? {};
+
+    return WashroomLocation(
+      id: doc.id,
+      name: data['name'] ?? 'Unknown Washroom',
+      lat: (data['lat'] ?? 0).toDouble(),
+      long: (data['long'] ?? 0).toDouble(),
+      review: data['review'] ?? '',
+      rating: (data['rating'] ?? 0).toDouble(),
+      isAccessible: data['isAccessible'] ?? false,
+      isGenderNeutral: data['isGenderNeutral'] ?? false,
+      isSingleStall: data['isSingleStall'] ?? false,
+    );
+  }
 
   // UoG coordinates for the map (static - belongs to class)
   static const LatLng _universityOfGuelph = LatLng(43.5314, -80.2272);
@@ -54,14 +70,6 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     checkLocationPermission();
-    _loadWashrooms(); 
-  }
-
-  Future<void> _loadWashrooms() async {
-    final washrooms = await _washroomService.getWashrooms();
-    setState(() {
-      _washrooms = washrooms;
-    });
   }
 
   //runs asyncronously hence Future<void>
@@ -77,16 +85,15 @@ class _MapScreenState extends State<MapScreen> {
     //create else statement - what does app do if permission is denied??????
   }
 
-  Set<Marker> _buildMarkers(FilterState filters){
+  Set<Marker> _buildMarkers(FilterState filters, List<WashroomLocation> firestoreWashrooms,){
     //apply filters
-    final filtered = filters.applyFilters(_washrooms);
+    final filtered = filters.applyFilters(firestoreWashrooms);
+
     return filtered.map((washroom){
       return Marker(
         markerId: MarkerId(washroom.id),
         position: LatLng(washroom.lat, washroom.long),
-        // now passes whole washroom object instead of separate fields
-        // so the directions button inside the bottom sheet can access coordinates
-        onTap: () {
+        onTap: (){
           _showWashroomReview(washroom: washroom);
         },
       );
@@ -94,8 +101,8 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   //get nearest bathroom
-  Future<WashroomLocation?> _findNearestWashroom(Position userPosition) async {
-   if (_washrooms.isEmpty) return null;
+  Future<WashroomLocation?> _findNearestWashroom(Position userPosition, List<WashroomLocation> firestoreWashrooms,) async {
+    if (firestoreWashrooms.isEmpty) return null;
     
     WashroomLocation? nearest;
 
@@ -103,7 +110,7 @@ class _MapScreenState extends State<MapScreen> {
     double shortestDistance = double.infinity; 
     
     //going though washroom data 
-   for (var washroom in _washrooms) {
+    for (var washroom in firestoreWashrooms) {
       double distance = Geolocator.distanceBetween(
         userPosition.latitude,
         userPosition.longitude,
@@ -160,7 +167,10 @@ class _MapScreenState extends State<MapScreen> {
       }
 
       //find nearest bathroom func
-      WashroomLocation? nearestWashroom = await _findNearestWashroom(userPosition);
+      final snapshot = await FirebaseFirestore.instance.collection('washrooms').get();
+      final firestoreWashrooms = snapshot.docs.map((doc) => _washroomFromDoc(doc)).toList();
+      WashroomLocation? nearestWashroom = await _findNearestWashroom(userPosition, firestoreWashrooms);
+      
       // if nearest washroom is null before real dialogue
       if (nearestWashroom == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -366,43 +376,302 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
+  Future <void> _showAddReviewDialog(WashroomLocation washroom) async{
+    final user = FirebaseAuth.instance.currentUser;
+
+    if(user == null){
+      final shouldLogin = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Login Required'),
+          content: const Text('Log In to write a review'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Login'),
+            ),
+          ],
+        ),
+      );
+
+      if(shouldLogin == true && mounted){
+        Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => const LoginPage()),
+        );
+      }
+      return;
+    }
+
+    final commentController = TextEditingController();
+    double selectedRating = 5;
+    bool isSubmitting = false;
+
+    await showDialog(
+      context: context,
+      builder: (context){
+        return StatefulBuilder(
+          builder: (context, setDialogState){
+            return AlertDialog(
+              title: const Text('Write a Review'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: List.generate(5, (index){
+                        final starValue = index + 1;
+                        return IconButton(
+                          onPressed: () {
+                            setDialogState((){
+                              selectedRating = starValue.toDouble();
+                            });
+                          },
+                          icon: Icon(
+                            starValue <= selectedRating
+                                ? Icons.star
+                                : Icons.star_border,
+                            color: Colors.amber,
+                          ),
+                        );
+                      }),
+                    ),
+                    TextField(
+                      controller: commentController,
+                      maxLines: 4,
+                      decoration: const InputDecoration(
+                        labelText: 'Comment',
+                        border: OutlineInputBorder(),
+                        hintText: 'How was this washroom?'
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: isSubmitting
+                      ? null
+                      : () async{
+                        final comment = commentController.text.trim();
+
+                        if(comment.isEmpty){
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(content: Text('Please enter a comment.')),
+                          );
+                          return;
+                        }
+
+                        setDialogState((){
+                          isSubmitting = true;
+                        });
+
+                    try{
+                      await _reviewService.addReview(
+                        bathroomId: washroom.id,
+                        rating: selectedRating,
+                        comment: comment,
+                      );
+
+                      if(context.mounted){
+                        Navigator.pop(context);
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          const SnackBar(content: Text('Review Submitted')),
+                        );
+                      }
+                    }catch(e){
+                      if(context.mounted){
+                        ScaffoldMessenger.of(this.context).showSnackBar(
+                          SnackBar(content: Text('Failed to Submit Review: $e')),
+                        );
+                      }
+
+                      setDialogState((){
+                        isSubmitting = false;
+                      });
+                    }
+                  },
+                  child: isSubmitting
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text ('Submit'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
   // added a Get Directions button at the bottom of the sheet
   void _showWashroomReview({required WashroomLocation washroom}){
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (context){
-        return Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children:[
-              //display washroom information
-              Text(
-                washroom.name,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              Text('⭐ Rating: ${washroom.rating}/5'),
-              const SizedBox(height: 8),
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: SizedBox(
+              height: MediaQuery.of(context).size.height * 0.72,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    washroom.name,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
 
-              if (washroom.isAccessible) const Text('♿ Accessible'),
-              if (washroom.isGenderNeutral) const Text('🚻 Gender Neutral'),
-              if (washroom.isSingleStall) const Text('🚪 Single Stall'),
-              const SizedBox(height: 8),
+                  StreamBuilder<DocumentSnapshot<Map<String,dynamic>>>(
+                    stream: FirebaseFirestore.instance
+                        .collection('washrooms')
+                        .doc(washroom.id)
+                        .snapshots(),
+                    builder: (context, snapshot){
+                      final data = snapshot.data?.data();
+                      final rating = (data?['rating'] ?? 0).toDouble();
+                      final reviewCount = (data?['reviewCount'] ?? 0).toInt();
 
-              Text(washroom.review),
-              const SizedBox(height: 16),
-              // button that triggers directions to this washroom
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => _getDirections(washroom),
-                  icon: const Icon(Icons.directions_walk),
-                  label: const Text('Get Directions'),
-                ),
+                      return Text (
+                        '⭐ Rating: ${rating.toStringAsFixed(1)}/5 ($reviewCount reviews)',
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 8),
+
+                  if (washroom.isAccessible) const Text('♿ Accessible'),
+                  if (washroom.isGenderNeutral) const Text('🚻 Gender Neutral'),
+                  if (washroom.isSingleStall) const Text('🚪 Single Stall'),
+
+                  const SizedBox(height: 12),
+
+                  OutlinedButton.icon(
+                    onPressed: () => _showAddReviewDialog(washroom),
+                    icon: const Icon(Icons.rate_review_outlined),
+                    label: const Text('Write a Review'),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  const Text(
+                    'Reviews',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+
+                  const SizedBox(height: 8),
+
+                  Expanded(
+
+                    child: StreamBuilder<List<ReviewModel>>(
+                      stream: _reviewService.getReviews(washroom.id),
+                      builder: (context,snapshot){
+                        if(snapshot.connectionState == ConnectionState.waiting){
+                          return const Center(
+                            child: CircularProgressIndicator(),
+                          );
+                        }
+
+                        if(snapshot.hasError){
+                          return const Center(
+                            child: Text('Failed to Load Reviews'),
+                          );
+                        }
+
+                        final reviews = snapshot.data ?? [];
+
+                        if (reviews.isEmpty) {
+                          return const Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'No user reviews yet, be the first to leave one.',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ],
+                          );
+                        }
+
+                        return ListView.separated(
+                          itemCount: reviews.length,
+                          separatorBuilder: (_, __) => const Divider(),
+                          itemBuilder: (context, index){
+                            final review = reviews[index];
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  review.userName,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Row(
+                                  children: List.generate(5, (starIndex){
+                                    return Icon(
+                                      starIndex < review.rating.round()
+                                        ? Icons.star
+                                        : Icons.star_border,
+                                      color: Colors.amber,
+                                      size: 18,
+                                    );
+                                  }),
+        
+                                ),
+                                const SizedBox(height: 6),
+                                Text(review.comment),
+                                if(review.createdAt != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${review.createdAt!.month}/${review.createdAt!.day}/${review.createdAt!.year}',
+                                    style: const TextStyle(
+                                      color: Colors.grey,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+
+                  const SizedBox(height: 12),
+
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _getDirections(washroom),
+                      icon: const Icon(Icons.directions_walk),
+                      label: const Text('Get Directions'),
+                    ),
+                  ),
+                ],
               ),
-            ],
+            ),
           ),
         );
       },
@@ -454,18 +723,31 @@ class _MapScreenState extends State<MapScreen> {
       body: Stack(
         children: [
             Consumer<FilterState>(
-              builder: (context,filters, _) {
-                return GoogleMap(
-                   initialCameraPosition: _initialPosition,
-                  onMapCreated: (GoogleMapController controller) {
-                    _mapController = controller;
+              builder: (context, filters, _) {
+                return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                  stream: FirebaseFirestore.instance.collection('washrooms').snapshots(),
+                  builder: (context, snapshot) {
+                    if (!snapshot.hasData) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+
+                    final firestoreWashrooms = snapshot.data!.docs
+                        .map((doc) => _washroomFromDoc(doc))
+                        .toList();
+
+                    return GoogleMap(
+                      initialCameraPosition: _initialPosition,
+                      onMapCreated: (GoogleMapController controller) {
+                        _mapController = controller;
+                      },
+                      myLocationEnabled: _locationPermissionGranted,
+                      myLocationButtonEnabled: _locationPermissionGranted,
+                      markers: _buildMarkers(filters, firestoreWashrooms),
+                      polylines: _polylines,
+                    );
                   },
-                  myLocationEnabled: _locationPermissionGranted,
-                  myLocationButtonEnabled: _locationPermissionGranted,
-                  markers: _buildMarkers(filters),
-                  polylines: _polylines, // tells the map to draw whatever lines are in _polylines
                 );
-              }
+              },
             ),
           // loading card that overlays the map while fetching the route
           if (_isLoadingDirections)
