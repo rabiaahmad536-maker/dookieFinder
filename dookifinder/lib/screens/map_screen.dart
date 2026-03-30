@@ -10,6 +10,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:provider/provider.dart';
 import '../state/filter_state.dart';
+import '../services/washroom_service.dart';  
 
 class MapScreen extends StatefulWidget {
   const MapScreen({super.key});
@@ -32,6 +33,12 @@ class _MapScreenState extends State<MapScreen> {
   // stores the estimated walking time to display at the bottom
   String? _routeDuration;
 
+  //instance of washroom_service class. ALlows communication with firebase
+  final _washroomService = WashroomService();
+  //holds washoom data once uploaded from firebase
+  List<WashroomLocation> _washrooms = [];
+
+
   // UoG coordinates for the map (static - belongs to class)
   static const LatLng _universityOfGuelph = LatLng(43.5314, -80.2272);
 
@@ -47,6 +54,14 @@ class _MapScreenState extends State<MapScreen> {
   void initState() {
     super.initState();
     checkLocationPermission();
+    _loadWashrooms(); 
+  }
+
+  Future<void> _loadWashrooms() async {
+    final washrooms = await _washroomService.getWashrooms();
+    setState(() {
+      _washrooms = washrooms;
+    });
   }
 
   //runs asyncronously hence Future<void>
@@ -64,7 +79,7 @@ class _MapScreenState extends State<MapScreen> {
 
   Set<Marker> _buildMarkers(FilterState filters){
     //apply filters
-    final filtered = filters.applyFilters(washroomLocations);
+    final filtered = filters.applyFilters(_washrooms);
     return filtered.map((washroom){
       return Marker(
         markerId: MarkerId(washroom.id),
@@ -80,7 +95,7 @@ class _MapScreenState extends State<MapScreen> {
 
   //get nearest bathroom
   Future<WashroomLocation?> _findNearestWashroom(Position userPosition) async {
-    if (washroomLocations.isEmpty) return null;
+   if (_washrooms.isEmpty) return null;
     
     WashroomLocation? nearest;
 
@@ -88,7 +103,7 @@ class _MapScreenState extends State<MapScreen> {
     double shortestDistance = double.infinity; 
     
     //going though washroom data 
-    for (var washroom in washroomLocations) {
+   for (var washroom in _washrooms) {
       double distance = Geolocator.distanceBetween(
         userPosition.latitude,
         userPosition.longitude,
