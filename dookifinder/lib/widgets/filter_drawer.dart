@@ -16,6 +16,17 @@ class _FilterDrawerState extends State<FilterDrawer> {
   double _minRating = 0;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final filters = context.read<FilterState>();
+    _accessibility = filters.accessibility;
+    _genderNeutral = filters.genderNeutral;
+    _singleStall = filters.singleStall;
+    _minRating = filters.minRating;
+  }
+
+  @override
   Widget build(BuildContext context) {
     //looks for any update to the filters and applies them 
     final filters = context.watch<FilterState>(); 
@@ -69,6 +80,26 @@ class _FilterDrawerState extends State<FilterDrawer> {
               divisions: 5,
               label: '${_minRating.toInt()} stars',
               onChanged: (val) => setState(() => _minRating = val),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _accessibility = false;
+                      _genderNeutral = false;
+                      _singleStall = false;
+                      _minRating = 0;
+                    });
+                    filters.clear();
+                  },
+                  icon: const Icon(Icons.clear),
+                  label: const Text('Clear Filters'),
+                ),
+              ),
             ),
 
             const Spacer(),

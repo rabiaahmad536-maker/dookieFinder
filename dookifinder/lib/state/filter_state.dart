@@ -21,6 +21,14 @@ class FilterState extends ChangeNotifier {
     notifyListeners(); // triggers map to re-filter markers
   }
 
+  void clear() {
+    accessibility = false;
+    genderNeutral = false;
+    singleStall = false;
+    minRating = 0;
+    notifyListeners();
+  }
+
   //activates bathrooms that have matching filters. Runs through all locations (loc), if 
   //the loc retuns false it is not displayed
   List<WashroomLocation> applyFilters(List<WashroomLocation> locations) {
