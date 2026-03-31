@@ -13,19 +13,6 @@ class FilterDrawer extends StatefulWidget {
 }
 
 class _FilterDrawerState extends State<FilterDrawer> {
-  double _minRating = 0;
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-    final filters = context.read<FilterState>();
-    _accessibility = filters.accessibility;
-    _genderNeutral = filters.genderNeutral;
-    _singleStall = filters.singleStall;
-    _minRating = filters.minRating;
-  }
-
   @override
   Widget build(BuildContext context) {
     //looks for any update to the filters and applies them 
@@ -74,12 +61,12 @@ class _FilterDrawerState extends State<FilterDrawer> {
               child: Text('Minimum Rating', style: TextStyle(fontSize: 16)),
             ),
             Slider(
-              value: _minRating,
-              min: 0,
-              max: 5,
-              divisions: 5,
-              label: '${_minRating.toInt()} stars',
-              onChanged: (val) => setState(() => _minRating = val),
+            value: filters.minRating,
+            min: 0,
+            max: 5,
+            divisions: 5,
+            label: '${filters.minRating.toInt()} stars',
+            onChanged: (val) => filters.update(minRating: val),
             ),
 
             Padding(
@@ -87,15 +74,7 @@ class _FilterDrawerState extends State<FilterDrawer> {
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () {
-                    setState(() {
-                      _accessibility = false;
-                      _genderNeutral = false;
-                      _singleStall = false;
-                      _minRating = 0;
-                    });
-                    filters.clear();
-                  },
+                  onPressed: () => filters.clear(),
                   icon: const Icon(Icons.clear),
                   label: const Text('Clear Filters'),
                 ),
