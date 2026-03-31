@@ -238,6 +238,7 @@ class _MapScreenState extends State<MapScreen> {
   // and draws it as a blue line on the map
   Future<void> _getDirections(WashroomLocation washroom, {bool isEmergency = false}) async {
 
+    print("GET DIRECTIONS FUNCTION CALLED"); //-------------------------------------------------------------------------------------------
     // Only pop if not from emergency (since emergency has no bottom sheet)
     if (!isEmergency) {
       Navigator.pop(context); 
@@ -297,6 +298,7 @@ class _MapScreenState extends State<MapScreen> {
             '&mode=walking'
             '&key=$googleMapsApiKey'
           ));
+          print('Directions response: ${response.body}'); //-------------------------------------------------------------------------------------------
           final data = json.decode(response.body);
           if (data['status'] == 'OK') {
             duration = data['routes'][0]['legs'][0]['duration']['text'];
