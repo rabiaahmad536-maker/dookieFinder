@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../state/filter_state.dart';
 
 class FilterDrawer extends StatefulWidget {
   const FilterDrawer({super.key});
@@ -15,7 +17,19 @@ class _FilterDrawerState extends State<FilterDrawer> {
   double _minRating = 0;
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+    final filters = context.read<FilterState>();
+    _accessibility = filters.accessibility;
+    _genderNeutral = filters.genderNeutral;
+    _singleStall = filters.singleStall;
+    _minRating = filters.minRating;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final filters = context.read<FilterState>();
     return Drawer(
       child: SafeArea(
         child: Column(
@@ -63,6 +77,26 @@ class _FilterDrawerState extends State<FilterDrawer> {
               onChanged: (val) => setState(() => _minRating = val),
             ),
 
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() {
+                      _accessibility = false;
+                      _genderNeutral = false;
+                      _singleStall = false;
+                      _minRating = 0;
+                    });
+                    filters.clear();
+                  },
+                  icon: const Icon(Icons.clear),
+                  label: const Text('Clear Filters'),
+                ),
+              ),
+            ),
+
             const Spacer(),
 
             Padding(
@@ -71,6 +105,12 @@ class _FilterDrawerState extends State<FilterDrawer> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    filters.update(
+                    accessibility: _accessibility,
+                    genderNeutral: _genderNeutral,
+                    singleStall: _singleStall,
+                    minRating: _minRating,
+                    );
                     Navigator.pop(context);
                   },
                   child: const Text('Apply Filters'),

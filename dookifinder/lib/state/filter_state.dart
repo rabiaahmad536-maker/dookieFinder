@@ -20,4 +20,12 @@ class FilterState extends ChangeNotifier {
     if (minRating != null) this.minRating = minRating;
     notifyListeners(); // triggers map to re-filter markers
   }
+
+  void clear() {
+    accessibility = false;
+    genderNeutral = false;
+    singleStall = false;
+    minRating = 0;
+    notifyListeners();
+  }
 }
