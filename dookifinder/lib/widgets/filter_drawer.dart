@@ -13,8 +13,6 @@ class FilterDrawer extends StatefulWidget {
 }
 
 class _FilterDrawerState extends State<FilterDrawer> {
-  double _minRating = 0;
-
   @override
   Widget build(BuildContext context) {
     //looks for any update to the filters and applies them 
@@ -63,12 +61,24 @@ class _FilterDrawerState extends State<FilterDrawer> {
               child: Text('Minimum Rating', style: TextStyle(fontSize: 16)),
             ),
             Slider(
-              value: _minRating,
-              min: 0,
-              max: 5,
-              divisions: 5,
-              label: '${_minRating.toInt()} stars',
-              onChanged: (val) => setState(() => _minRating = val),
+            value: filters.minRating,
+            min: 0,
+            max: 5,
+            divisions: 5,
+            label: '${filters.minRating.toInt()} stars',
+            onChanged: (val) => filters.update(minRating: val),
+            ),
+
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: () => filters.clear(),
+                  icon: const Icon(Icons.clear),
+                  label: const Text('Clear Filters'),
+                ),
+              ),
             ),
 
             const Spacer(),
