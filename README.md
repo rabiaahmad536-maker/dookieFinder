@@ -23,12 +23,44 @@ A location-based mobile application designed to optimize and streamline campus n
 
 ## Installation & Local Setup
 
+### 1. Clone the Repository
+
 ```bash
-# Clone the repository and its version history
-git clone [https://github.com/your-username/dookieFinder.git](https://github.com/your-username/dookieFinder.git)
-
-# Navigate to the project root
+git clone https://github.com/rabiaahmad536-maker/dookieFinder.git
 cd dookieFinder
+```
 
-# Install dependencies and launch the application environment
-[Insert local setup command here, e.g., "npm install && npm start" or "flutter run"]
+### 2. Install Dependencies
+
+Run the following command to install all required packages:
+
+```bash
+flutter pub get
+```
+
+### 3. Configure Google Maps API Key
+
+Obtain a Google Maps API key from the Google Cloud Console.
+
+Then, add the following metadata tag to:
+
+`android/app/src/main/AndroidManifest.xml`
+
+```xml
+<meta-data
+    android:name="com.google.android.geo.API_KEY"
+    android:value="YOUR_API_KEY_HERE" />
+```
+
+### 4. Build and Run the Application
+
+Open Android Studio and either:
+
+- Launch an Android Virtual Device (AVD), or
+- Connect a physical Android device.
+
+Then run:
+
+```bash
+flutter run
+```
